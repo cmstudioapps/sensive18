@@ -119,17 +119,18 @@ async function checarVideo() {
 
 ---
 
-## 🧒 Estimativa de Idade e Rosto (Face API)
+### 3. Estimativa de Idade e Rosto (Face API)
 
 Localiza um ou mais rostos na foto e detecta matematicamente a provável idade e o gênero. Útil para processos de verificação de conta (KYC) e proteção para menores.
 
-### Exemplo de Código
+#### Exemplo de Código
 ```javascript
 const moderador = require('sensive18');
 
 async function kyc(fotoDocumento) {
     // Aceita File Path, Buffer ou Base64
-    const rosto = await moderador.estimarIdade(fotoDocumento);
+    // Novo: Você pode passar a opção `underAgeCheck` com a idade alvo.
+    const rosto = await moderador.estimarIdade(fotoDocumento, { underAgeCheck: 18 });
     // Alias: moderador.estimateAge()
 
     if (!rosto.hasFaces) {
@@ -138,35 +139,35 @@ async function kyc(fotoDocumento) {
 
     console.log(`Detectados ${rosto.faceCount} rosto(s).`);
     
-    // Varrendo os rostos e imprimindo idades
+    // Varrendo os rostos e imprimindo detalhes matemáticos
     rosto.faces.forEach((face, index) => {
         console.log(`Pessoa ${index + 1}: ${face.age} anos, gênero ${face.gender}`);
+        if (face.isUnderAge) {
+            console.log(`Certeza de ser menor de idade: ${(face.underAgeProbability * 100).toFixed(1)}%`);
+        }
     });
 }
 ```
 
-### O que essa função retorna?
+#### O que essa função retorna?
 ```json
 {
   "hasFaces": true,
   "faceCount": 1,
   "faces": [
     { 
-      "age": 25, 
-      "gender": "male", 
+      "age": 14, 
+      "gender": "female", 
       "genderScore": 0.985, 
-      "box": [120, 250, 60, 60] 
+      "box": [120, 250, 60, 60],
+      "isUnderAge": true,
+      "underAgeProbability": 0.9608
     }
   ]
 }
 ```
-- **`hasFaces` (Boolean):** Verdadeiro se a IA conseguiu reconhecer claramente rostos na foto.
-- **`faceCount` (Number):** A quantidade de rostos detectados.
-- **`faces` (Array):** O detalhamento de cada indivíduo reconhecido na foto.
-  - **`age` (Number):** A estimativa em anos.
-  - **`gender` (String):** `male`, `female` ou `unknown`.
-  - **`genderScore` (Number):** A certeza da inteligência artificial sobre o gênero (0 a 1).
-  - **`box` (Array):** Uma array numérica `[x, y, largura, altura]` que marca onde, dentro da imagem, o rosto está localizado (útil caso você queira desenhar um quadrado na tela no seu frontend).
+- **`isUnderAge` (Boolean):** Flag opcional presente se você informar o `underAgeCheck`.
+- **`underAgeProbability` (Number):** Uma curva de probabilidade sigmoide (logística) exata variando de 0 a 1 que calcula a distância entre a idade real detectada e o seu limite de verificação. Ex: Se a IA detectar alguém com 12 anos e seu limite é 18, a probabilidade da pessoa de fato ser uma criança será de 99,1%. Se a IA detectar alguém de 17 anos (muito próximo a 18), a probabilidade cai para ~70%. Isso evita falsos positivos drásticos!
 
 ---
 

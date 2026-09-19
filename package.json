@@ -1,6 +1,6 @@
 {
   "name": "sensive18",
-  "version": "1.0.0",
+  "version": "1.4.0",
   "description": "Wrapper simples de Inteligência Artificial em Node.js para moderação de NSFW, estimação de idade e rastreamento facial em fotos e vídeos.",
   "main": "index.js",
   "files": [

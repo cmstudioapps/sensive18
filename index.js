@@ -27,7 +27,8 @@ async function getHumanModel() {
     if (!humanModel) {
         const modelPath = 'file://' + path.join(__dirname, 'node_modules', '@vladmandic/human', 'models');
         
-        humanModel = new humanCore.Human({
+        const HumanClass = humanCore.Human || humanCore;
+        humanModel = new HumanClass({
             backend: 'tensorflow',
             modelBasePath: modelPath,
             face: {
@@ -36,7 +37,6 @@ async function getHumanModel() {
                 mesh: { enabled: false }, 
                 iris: { enabled: false },
                 emotion: { enabled: false },
-                // Habilitamos a descrição (embeddings) para distinguir rostos repetidos nos vídeos
                 description: { enabled: true }
             },
             body: { enabled: false },
@@ -150,7 +150,6 @@ async function analisarVideo(inputPath, options = {}) {
     });
 }
 
-// Matemática de similaridade para detectar se o rosto é o mesmo
 function calculateCosineSimilarity(vecA, vecB) {
     if (!vecA || !vecB) return 0;
     let dotProduct = 0, normA = 0, normB = 0;
@@ -163,7 +162,7 @@ function calculateCosineSimilarity(vecA, vecB) {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-async function estimarIdade(input) {
+async function estimarIdade(input, options = {}) {
     let buffer;
     try { buffer = await decodificarEntrada(input); } catch(e) { throw new Error(e.message); }
 
@@ -174,14 +173,29 @@ async function estimarIdade(input) {
         const result = await loadedHuman.detect(imageTensor);
         const facesDetected = result.face || [];
         
-        const faces = facesDetected.map(f => ({
-            age: Math.round(f.age || 0),
-            gender: f.gender,
-            genderScore: f.genderScore,
-            box: f.box,
-            // Guardamos a assinatura neural do rosto
-            descriptor: f.embedding || f.descriptor 
-        }));
+        const targetAge = options.underAgeCheck; // Ex: 18
+        
+        const faces = facesDetected.map(f => {
+            const rawAge = f.age || 0;
+            const faceResult = {
+                age: Math.round(rawAge),
+                gender: f.gender,
+                genderScore: f.genderScore,
+                box: f.box,
+                descriptor: f.embedding || f.descriptor 
+            };
+            
+            // Matemática da Curva Sigmoide Logística
+            // Transforma a distância entre as idades em uma Probabilidade fluída
+            if (targetAge !== undefined) {
+                // Fator de peso da curva = 0.8 (torna a curva menos brusca)
+                const certainty = 1 / (1 + Math.exp((rawAge - targetAge) * 0.8));
+                faceResult.isUnderAge = rawAge < targetAge;
+                faceResult.underAgeProbability = parseFloat(certainty.toFixed(4));
+            }
+            
+            return faceResult;
+        });
 
         return {
             hasFaces: faces.length > 0,
@@ -195,9 +209,6 @@ async function estimarIdade(input) {
     }
 }
 
-/**
- * Analisa um vídeo extraindo frames para estimar idades e contar pessoas diferentes
- */
 async function estimarIdadeVideo(inputPath, options = {}) {
     if (typeof inputPath !== 'string') throw new Error('O input para vídeo deve ser o caminho do arquivo.');
     const framesToExtract = options.frames || 3;
@@ -218,19 +229,17 @@ async function estimarIdadeVideo(inputPath, options = {}) {
             .on('end', async () => {
                 let allFaces = [];
                 let uniquePeople = [];
-                // Se a similaridade for maior que 60%, consideramos ser a mesma pessoa
                 const SIMILARITY_THRESHOLD = 0.6; 
 
                 try {
                     for (const framePath of generatedFiles) {
                         if (!fs.existsSync(framePath)) continue;
                         const buffer = fs.readFileSync(framePath);
-                        const analiseFrame = await estimarIdade(buffer);
+                        // Repassa o underAgeCheck para cada frame também, se fornecido
+                        const analiseFrame = await estimarIdade(buffer, options);
                         
                         for (const face of analiseFrame.faces) {
                             allFaces.push(face);
-                            
-                            // Verifica se esse rosto já foi visto em outro frame
                             let isNewPerson = true;
                             for (const knownPerson of uniquePeople) {
                                 if (face.descriptor && knownPerson.descriptor) {
@@ -241,16 +250,12 @@ async function estimarIdadeVideo(inputPath, options = {}) {
                                     }
                                 }
                             }
-                            if (isNewPerson) {
-                                uniquePeople.push(face);
-                            }
+                            if (isNewPerson) uniquePeople.push(face);
                         }
                     }
 
-                    // Limpa disco
                     for (const framePath of generatedFiles) if (fs.existsSync(framePath)) fs.unlinkSync(framePath);
 
-                    // Remove os descritores pesados antes de devolver para o usuário
                     const cleanFaces = allFaces.map(f => {
                         const { descriptor, ...safeFace } = f;
                         return safeFace;
@@ -258,8 +263,8 @@ async function estimarIdadeVideo(inputPath, options = {}) {
 
                     resolve({
                         hasFaces: cleanFaces.length > 0,
-                        faceCountTotal: cleanFaces.length, // Ocorrências totais em todos os frames
-                        uniquePeopleCount: uniquePeople.length, // Quantidade de pessoas diferentes estimadas
+                        faceCountTotal: cleanFaces.length,
+                        uniquePeopleCount: uniquePeople.length,
                         faces: cleanFaces
                     });
                 } catch (error) {
