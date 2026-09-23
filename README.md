@@ -199,8 +199,7 @@ async function validarIdentidadesNoVideo() {
   "uniquePeopleCount": 2,
   "faces": [
     { "age": 25, "gender": "male", "genderScore": 0.985, "box": [120, 250, 60, 60] },
-    { "age": 28, "gender": "female", "genderScore": 0.92, "box": [400, 100, 50, 50] },
-    ...
+    { "age": 28, "gender": "female", "genderScore": 0.92, "box": [400, 100, 50, 50] }
   ]
 }
 ```
@@ -209,11 +208,124 @@ async function validarIdentidadesNoVideo() {
 
 ---
 
+### 5. Moderação de Textos e OCR em Imagens (Com Inteligência de Contexto)
+
+O Sensive18 possui uma **arquitetura híbrida de moderação de texto**, o que significa que ele roda super rápido de forma offline, mas pode se tornar incrivelmente inteligente se você der uma chave de API para ele.
+
+#### 1. Modo Offline (Padrão)
+Se você não configurar nada, ele rodará offline usando nossos dicionários embarcados com mais de **2800 palavras** nativas obscenas em Inglês e Português do Brasil.
+
+#### 2. Modo IA de Contexto (Google Perspective)
+Para moderar **ameaças reais, ironias e ataques passivo-agressivos** que não contêm palavrões explícitos (ex: "Vá para o inferno seu otário"), nós integramos a biblioteca de forma nativa com a **Perspective API** (do Jigsaw/Google).
+
+1. Entre no Google Cloud Console e ative a [Perspective API](https://developers.perspectiveapi.com/s/docs-get-started).
+2. Gere sua API Key.
+3. Configure a sua chave no Sensive18:
+
+```javascript
+const moderador = require('sensive18');
+
+moderador.config({ 
+    perspectiveApiKey: 'SUA_API_KEY_AQUI',
+    perspectiveThreshold: 0.75 // Acima de 75% de toxicidade, a mensagem é bloqueada
+});
+```
+
+#### Exemplo de Código (Chat e Textos)
+*(Nota: A partir da versão 1.5, a função analisarTexto passa a ser assíncrona)*
+```javascript
+async function moderarChat(mensagemUsuario) {
+    // Se a API Key não foi passada, ou se a internet cair, ele roda offline silenciosamente!
+    const analise = await moderador.analisarTexto(mensagemUsuario);
+    // Alias: moderador.analyzeText()
+
+    if (!analise.isSafe) {
+        console.log(`Mensagem bloqueada! Fonte da decisão: ${analise.source}`);
+        return analise.censoredText;
+    }
+    return mensagemUsuario;
+}
+```
+
+#### O que essa função retorna no Modo Google?
+```json
+{
+  "isSafe": false,
+  "badWordsFound": ["[toxicidade-detectada-por-contexto]"],
+  "censoredText": "[MENSAGEM RETIDA PELA MODERAÇÃO DE CONTEXTO]",
+  "toxicityScore": 0.89,
+  "threatScore": 0.95,
+  "insultScore": 0.82,
+  "profanityScore": 0.12,
+  "source": "perspective-api"
+}
+```
+
+#### Extração de Texto em Imagens (Memes/Prints)
+Se o usuário enviar um meme contendo xingamentos, a biblioteca conta com OCR integrado para ler e enviar para moderação!
+```javascript
+async function checarMeme(fotoUpload) {
+    const analise = await moderador.analisarTextoDeImagem(fotoUpload);
+    // Alias: moderador.analyzeImageText()
+
+    if (!analise.isSafe) {
+        console.log(`O que a IA conseguiu ler da imagem: "${analise.extractedText}"`);
+    }
+}
+```
+
+#### Funções Dinâmicas (Controle Total Offline)
+Caso você use o modo offline (ou o fallback seja ativado), você pode inserir regras em tempo real:
+```javascript
+moderador.adicionarPalavraProibida('bananada');
+moderador.removerPalavraProibida('bobão');
+```
+
+---
+
+### 6. Transcrição e Moderação de Áudio e Vídeo (Whisper AI Offline)
+
+A Sensive18 também é capaz de **"ouvir"** arquivos de vídeo ou áudio e julgar se as pessoas estão xingando, fazendo ameaças (com o Google Perspective habilitado) ou falando obscenidades! 
+
+Isso é feito embutindo uma versão super otimizada do modelo **Whisper (da OpenAI)** rodando 100% de forma local no seu servidor, sem APIs pagas!
+
+*(Aviso: Na primeira vez que a função rodar, ela baixará automaticamente os pesos do modelo local `whisper-tiny` de aprox. 75MB).*
+
+#### Exemplo de Código (Speech-to-Text em Moderação)
+```javascript
+async function analisarVozDoVideo(arquivoPath) {
+    // A inteligência extrairá o áudio do vídeo/áudio com FFmpeg e passará pro Whisper
+    const analiseVoz = await moderador.analisarAudio('./podcast.mp4');
+    // Alias: moderador.analyzeAudioText() ou moderador.analyzeVideoText()
+
+    if (!analiseVoz.isSafe) {
+        console.log(`Palavrões falados no áudio: ${analiseVoz.badWordsFound.join(', ')}`);
+    }
+    
+    // Você também pode usar a biblioteca puramente como um Transcritor!
+    console.log(`Texto extraído pela IA: "${analiseVoz.transcription}"`);
+}
+```
+
+#### O que essa função retorna?
+O retorno cruza perfeitamente com a Moderação de Texto.
+```json
+{
+  "isSafe": false,
+  "transcription": "Seu otário, eu vou acabar com você!",
+  "badWordsFound": ["otário"],
+  "censoredText": "Seu ******, eu vou acabar com você!",
+  "source": "offline-dictionary" 
+}
+```
+
+---
+
 ## 🧠 Arquitetura e Vantagens Técnicas
 
-1. **Anti Memory-Leaks (Vazamento de Memória):** Diferente de implementações ingênuas de IA no Node.js, a biblioteca limpa religiosamente os tensores decodificados do C++ (`imageTensor.dispose()`) após cada processamento, garantindo que o seu servidor não trave mesmo validando milhares de fotos por dia.
-2. **Offline Local Models:** As redes neurais são baixadas localmente junto com o `npm install`. Em nenhum momento a Sensive18 envia fotos dos seus usuários para fora ou precisa de conexão externa para ler os pesos da rede. Funciona 100% offline em redes seguras corporativas.
-3. **FFMPEG Inteligente e Estático:** A análise de vídeos não falha caso o servidor do usuário não tenha ffmpeg instalado no Ubuntu/Windows. A Sensive18 embala seu próprio executável (`ffmpeg-static`), o que garante compatibilidade.
+1. **Anti Memory-Leaks (Vazamento de Memória):** Diferente de implementações ingênuas de IA no Node.js, a biblioteca limpa religiosamente os tensores decodificados do C++ (`imageTensor.dispose()`) após cada processamento.
+2. **Offline Local Models (Whisper e NSFW):** As redes neurais são baixadas localmente. Em nenhum momento a Sensive18 envia arquivos de áudio/imagem dos seus usuários para fora ou precisa de conexão externa para rodar o Whisper ou o NSFW. Funciona 100% offline.
+3. **FFMPEG Inteligente e Estático:** A análise de vídeos e áudios não falha caso o servidor do usuário não tenha ffmpeg instalado no Ubuntu/Windows. A Sensive18 embala seu próprio executável (`ffmpeg-static`), garantindo extração de WAV em segundos.
 
 ## ⚖️ Licença
 Sensive18 é livre e open-source licenciado através da **MIT License**.
