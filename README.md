@@ -212,22 +212,25 @@ async function validarIdentidadesNoVideo() {
 
 O Sensive18 possui uma **arquitetura híbrida de moderação de texto**, o que significa que ele roda super rápido de forma offline, mas pode se tornar incrivelmente inteligente se você der uma chave de API para ele.
 
-#### 1. Modo Offline (Padrão)
-Se você não configurar nada, ele rodará offline usando nossos dicionários embarcados com mais de **2800 palavras** nativas obscenas em Inglês e Português do Brasil.
+#### 1. Modo Offline Padrão (Extrema Velocidade)
+Se você não configurar nada, ele rodará offline usando nossos dicionários embarcados com mais de **2800 palavras** nativas obscenas em Inglês e Português do Brasil em 0 milissegundos.
 
-#### 2. Modo IA de Contexto (Google Perspective)
-Para moderar **ameaças reais, ironias e ataques passivo-agressivos** que não contêm palavrões explícitos (ex: "Vá para o inferno seu otário"), nós integramos a biblioteca de forma nativa com a **Perspective API** (do Jigsaw/Google).
-
-1. Entre no Google Cloud Console e ative a [Perspective API](https://developers.perspectiveapi.com/s/docs-get-started).
-2. Gere sua API Key.
-3. Configure a sua chave no Sensive18:
-
+#### 2. Modo IA de Contexto Offline (Pipeline Tradução + Toxicity)
+Se você quer moderar **ameaças reais e ironias**, mas seu servidor **não possui internet** ou sua empresa não permite uso de APIs externas, a Sensive18 possui um motor brutal 100% offline. Ele baixa o tradutor da Hugging Face, traduz o português em tempo real e joga pro motor americano `@tensorflow-models/toxicity`.
 ```javascript
-const moderador = require('sensive18');
+moderador.config({ 
+    useLocalToxicity: true, // Ativa o cérebro offline avançado
+    keepModelsInMemory: false // Lança o Garbage Collector após o uso para salvar memória RAM
+});
+```
+*Aviso:* O modo local exige processamento. Com `keepModelsInMemory: false`, a IA de texto é carregada na RAM e completamente destruída após julgar a frase (Zero RAM state no repouso). Se você tem bastante RAM e quer respostas instantâneas, mude para `true`!
 
+#### 3. Modo IA de Contexto Online (Google Perspective)
+Para a análise em tempo real mais poderosa do planeta com peso 0 no seu servidor, nós integramos a biblioteca nativamente com a **Perspective API** (do Google). Basta injetar a chave que o sistema prioriza ela:
+```javascript
 moderador.config({ 
     perspectiveApiKey: 'SUA_API_KEY_AQUI',
-    perspectiveThreshold: 0.75 // Acima de 75% de toxicidade, a mensagem é bloqueada
+    perspectiveThreshold: 0.75 
 });
 ```
 

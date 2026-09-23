@@ -42,21 +42,22 @@ async function testarTudo() {
         console.log('   Erro Texto Offline:', e.message);
     }
 
-    // 4. TESTE DE TEXTO (GOOGLE PERSPECTIVE API)
-    console.log('\n▶️ TESTE 4: Inteligência de Contexto (Google Perspective API)');
-    const API_KEY = process.env.PERSPECTIVE_KEY;
-    if (API_KEY) {
-        try {
-            moderador.config({ perspectiveApiKey: API_KEY });
-            const fraseAmeacadora = "Você é o tipo de pessoa que o mundo não sentiria falta se sumisse.";
-            const resGoogle = await moderador.analyzeText(fraseAmeacadora);
-            console.log(`   Seguro?`, resGoogle.isSafe);
-            console.log(`   Motivo do Bloqueio: Toxicidade = ${(resGoogle.toxicityScore * 100).toFixed(1)}%`);
-        } catch (e) {
-            console.log('   Erro Google API:', e.message);
-        }
-    } else {
-        console.log('   ⚠️ Pulo: Configure a variável "PERSPECTIVE_KEY" no terminal para testar a IA do Google.');
+    // 4. TESTE DE TEXTO (IA LOCAL - TRADUÇÃO + TOXICITY OFFLINE)
+    console.log('\n▶️ TESTE 4: Inteligência de Contexto (PIPELINE 100% OFFLINE)');
+    console.log('   [⚙️] Ativando "useLocalToxicity: true" com limpeza de RAM (Garbage Collection)...');
+    try {
+        moderador.config({ useLocalToxicity: true, keepModelsInMemory: false });
+        
+        // Frase que o dicionário não pega, mas é uma ameaça:
+        const fraseAmeacadoraLocal = "Vou te pegar na saída e acabar com a sua raça!";
+        console.log(`   Avaliando (Baixando/Usando modelos na RAM e destruindo em seguida): "${fraseAmeacadoraLocal}"`);
+        
+        const resLocalIA = await moderador.analyzeText(fraseAmeacadoraLocal);
+        console.log(`   Seguro?`, resLocalIA.isSafe);
+        console.log(`   Detalhes do Pipeline:`, resLocalIA.badWordsFound);
+        console.log(`   (Memória RAM liberada com sucesso).`);
+    } catch (e) {
+        console.log('   Erro Local IA Pipeline:', e.message);
     }
 
     // 5. TESTE DE ÁUDIO/VÍDEO STT E OCR
