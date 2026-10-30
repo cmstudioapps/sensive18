@@ -467,9 +467,17 @@ async function verifyComposeImage(entrada) {
 async function verificarImagem(entrada) {
     return await verifyComposeImage(entrada);
 }
-const analyzeImage = analisarImagem; const analyzeVideo = analisarVideo; const estimateAge = estimarIdade; const estimateAgeVideo = estimarIdadeVideo;
-const analyzeText = analisarTexto; const analyzeImageText = analisarTextoDeImagem; const addForbiddenWord = adicionarPalavraProibida;
-const removeForbiddenWord = removerPalavraProibida; const analyzeAudioText = analisarAudio; const analyzeVideoText = analisarTextoDeVideo;
+const analisarTextoDeVideo = analisarAudio;
+const analyzeImage = analisarImagem; 
+const analyzeVideo = analisarVideo; 
+const estimateAge = estimarIdade; 
+const estimateAgeVideo = estimarIdadeVideo;
+const analyzeText = analisarTexto; 
+const analyzeImageText = analisarTextoDeImagem; 
+const addForbiddenWord = adicionarPalavraProibida;
+const removeForbiddenWord = removerPalavraProibida; 
+const analyzeAudioText = analisarAudio; 
+const analyzeVideoText = analisarTextoDeVideo;
 
 module.exports = {
     config, analisarImagem, analyzeImage, analisarVideo, analyzeVideo,

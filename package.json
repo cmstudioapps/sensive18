@@ -1,10 +1,13 @@
 {
   "name": "sensive18",
-  "version": "1.7.0",
+  "version": "1.7.4",
   "description": "Biblioteca open-source de moderação de conteúdo para Node.js (Detecta nudez, idade e palavras sensíveis offline).",
   "main": "index.js",
   "files": [
-    "index.js"
+    "index.js",
+    "dict_en_massive.json",
+    "dict_en.txt",
+    "dict_pt.txt"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -32,6 +35,6 @@
     "video-moderation",
     "face-tracking"
   ],
-  "author": "",
+  "author": "Caio Multiversando",
   "license": "MIT"
 }
