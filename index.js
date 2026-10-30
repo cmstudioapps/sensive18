@@ -405,7 +405,68 @@ async function estimarIdadeVideo(inputPath, options = {}) {
     });
 }
 
-const analisarTextoDeVideo = analisarAudio;
+let clipModel = null;
+async function getClipModel() {
+    if (!clipModel) {
+        const { pipeline } = getTransformers();
+        clipModel = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32');
+    }
+    return clipModel;
+}
+
+/**
+ * Analisa a natureza visual de uma imagem.
+ * @param {string|Buffer} entrada - Base64, caminho local ou Buffer.
+ * @returns {Promise<Object>} Resultado da classificação.
+ */
+async function verifyComposeImage(entrada) {
+    try {
+        const buffer = await decodificarEntrada(entrada);
+        const model = await getClipModel();
+        const labels = ["real photo", "drawing or illustration", "anime or manga", "digital art", "3D render", "AI-generated image"];
+        
+        const rawResults = await model(buffer, labels);
+        
+        // Mapeia os rótulos do CLIP para chaves camelCase mais limpas
+        const keyMap = {
+            "real photo": "realPhoto",
+            "drawing or illustration": "drawingOrIllustration",
+            "anime or manga": "animeOrManga",
+            "digital art": "digitalArt",
+            "3D render": "threeDRender",
+            "AI-generated image": "aiGeneratedImage"
+        };
+
+        const results = {};
+        rawResults.forEach(r => {
+            const mappedKey = keyMap[r.label] || r.label;
+            results[mappedKey] = parseFloat(r.score.toFixed(4));
+        });
+
+        // Determina o tipo principal com base na maior pontuação
+        const sortedEntries = Object.entries(results).sort((a, b) => b[1] - a[1]);
+        const [topType, topScore] = sortedEntries[0];
+
+        return {
+            success: true,
+            type: topType,
+            confidence: topScore,
+            results: results,
+            description: `A imagem foi classificada como ${topType} com ${(topScore * 100).toFixed(2)}% de similaridade.`
+        };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+}
+
+/**
+ * Alternativa em português para análise visual.
+ * @param {string|Buffer} entrada - Base64, caminho local ou Buffer.
+ * @returns {Promise<Object>} Resultado da classificação.
+ */
+async function verificarImagem(entrada) {
+    return await verifyComposeImage(entrada);
+}
 const analyzeImage = analisarImagem; const analyzeVideo = analisarVideo; const estimateAge = estimarIdade; const estimateAgeVideo = estimarIdadeVideo;
 const analyzeText = analisarTexto; const analyzeImageText = analisarTextoDeImagem; const addForbiddenWord = adicionarPalavraProibida;
 const removeForbiddenWord = removerPalavraProibida; const analyzeAudioText = analisarAudio; const analyzeVideoText = analisarTextoDeVideo;
@@ -415,5 +476,6 @@ module.exports = {
     estimarIdade, estimateAge, estimarIdadeVideo, estimateAgeVideo,
     analisarTexto, analyzeText, analisarTextoDeImagem, analyzeImageText,
     adicionarPalavraProibida, addForbiddenWord, removerPalavraProibida, removeForbiddenWord,
-    analisarAudio, analyzeAudioText, analisarTextoDeVideo, analyzeVideoText
+    analisarAudio, analyzeAudioText, analisarTextoDeVideo, analyzeVideoText,
+    verifyComposeImage, verificarImagem
 };

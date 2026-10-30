@@ -324,7 +324,46 @@ O retorno cruza perfeitamente com a Moderação de Texto.
 
 ---
 
-## 🧠 Arquitetura e Vantagens Técnicas
+### 7. Classificação e Natureza Visual de Imagens (CLIP AI Offline)
+
+A Sensive18 possui um recurso avançado para identificar a natureza visual de imagens utilizando IA local (modelo CLIP). Ele classifica se a imagem é uma fotografia real, desenho, anime, arte digital, render 3D ou se há indícios de ter sido gerada por inteligência artificial.
+
+#### Exemplo de Código
+```javascript
+const moderador = require('sensive18');
+
+async function checarNaturezaDaImagem(fotoPath) {
+    // Aceita File Path, Buffer ou Base64
+    const analise = await moderador.verificarImagem(fotoPath);
+    // Alias em inglês: moderador.verifyComposeImage(fotoPath);
+
+    if (analise.success) {
+        console.log(`Tipo principal detectado: ${analise.type}`);
+        console.log(`Confiança: ${analise.confidence}`);
+        console.log(`Scores detalhados:`, analise.results);
+    }
+}
+```
+
+#### O que essa função retorna?
+```json
+{
+  "success": true,
+  "type": "realPhoto",
+  "confidence": 0.8942,
+  "results": {
+    "realPhoto": 0.8942,
+    "drawingOrIllustration": 0.0512,
+    "digitalArt": 0.0301,
+    "threeDRender": 0.0120,
+    "animeOrManga": 0.0015,
+    "aiGeneratedImage": 0.0110
+  },
+  "description": "A imagem foi classificada como realPhoto com 89.42% de similaridade."
+}
+```
+
+---
 
 1. **Anti Memory-Leaks (Vazamento de Memória):** Diferente de implementações ingênuas de IA no Node.js, a biblioteca limpa religiosamente os tensores decodificados do C++ (`imageTensor.dispose()`) após cada processamento.
 2. **Offline Local Models (Whisper e NSFW):** As redes neurais são baixadas localmente. Em nenhum momento a Sensive18 envia arquivos de áudio/imagem dos seus usuários para fora ou precisa de conexão externa para rodar o Whisper ou o NSFW. Funciona 100% offline.
